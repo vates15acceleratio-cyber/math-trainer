@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="description" content="Calcul mental, formules de maths et physique, convertisseur et constantes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Math Trainer">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%230f172a' width='192' height='192'/><text x='50%' y='50%' font-size='120' font-family='Georgia,serif' font-weight='bold' fill='%2338bdf8' text-anchor='middle' dominant-baseline='central'>∑</text></svg>">
+    <title>Math & Physique Trainer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+        input { -webkit-user-select: text; user-select: text; }
+        html, body { margin: 0; padding: 0; width: 100%; min-height: 100%; background: #0f172a; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overscroll-behavior: none; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.25s ease-out; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        /* ============================== DONNÉES : FORMULES ============================== */
+
+        const CATEGORIES = {
+            // Maths
+            primitives:   { label: 'Primitives',            group: 'Mathématiques' },
+            derivees:     { label: 'Dérivées',              group: 'Mathématiques' },
+            algebre:      { label: 'Algèbre (identités)',   group: 'Mathématiques' },
+            trigo:        { label: 'Trigonométrie',         group: 'Mathématiques' },
+            complexes:    { label: 'Nombres complexes',     group: 'Mathématiques' },
+            edo:          { label: 'Équations différentielles', group: 'Mathématiques' },
+            matrices:     { label: 'Matrices & déterminants', group: 'Mathématiques' },
+            dl:           { label: 'Développements limités (en 0)', group: 'Mathématiques' },
+            // Géométrie
+            surfaces:     { label: 'Surfaces',              group: 'Géométrie' },
+            volumes:      { label: 'Volumes',               group: 'Géométrie' },
+            // Mécanique
+            rdm:          { label: 'RDM',                   group: 'Mécanique' },
+            statique:     { label: 'Statique',              group: 'Mécanique' },
+            pointmeca:    { label: 'Mécanique du point',    group: 'Mécanique' },
+            // Physique
+            fluides:      { label: 'Mécanique des fluides', group: 'Physique' },
+            thermique:    { label: 'Thermique / thermo',    group: 'Physique' },
+            acoustique:   { label: 'Acoustique',            group: 'Physique' },
+            elec:         { label: 'Électricité',           group: 'Physique' },
+        };
+
+        const FORMULAS = {
+            primitives: [
+                { formula: '∫ xⁿ dx', solution: 'xⁿ⁺¹/(n+1) + C   (n ≠ -1)' },
+                { formula: '∫ 1/x dx', solution: 'ln|x| + C' },
+                { formula: '∫ eˣ dx', solution: 'eˣ + C' },
+                { formula: '∫ aˣ dx', solution: 'aˣ / ln(a) + C' },
+                { formula: '∫ ln(x) dx', solution: 'x·ln(x) − x + C' },
+                { formula: '∫ sin(x) dx', solution: '−cos(x) + C' },
+                { formula: '∫ cos(x) dx', solution: 'sin(x) + C' },
+                { formula: '∫ tan(x) dx', solution: '−ln|cos(x)| + C' },
+                { formula: '∫ 1/cos²(x) dx', solution: 'tan(x) + C' },
+                { formula: '∫ 1/(1+x²) dx', solution: 'arctan(x) + C' },
+                { formula: '∫ 1/√(1−x²) dx', solution: 'arcsin(x) + C' },
+                { formula: '∫ u\'·eᵘ dx', solution: 'eᵘ + C' },
+                { formula: '∫ u\'/u dx', solution: 'ln|u| + C' },
+            ],
+            derivees: [
+                { formula: "(xⁿ)'", solution: 'n·xⁿ⁻¹' },
+                { formula: "(eˣ)'", solution: 'eˣ' },
+                { formula: "(ln x)'", solution: '1/x' },
+                { formula: "(aˣ)'", solution: 'aˣ·ln(a)' },
+                { formula: "(√x)'", solution: '1/(2√x)' },
+                { formula: "(sin x)'", solution: 'cos(x)' },
+                { formula: "(cos x)'", solution: '−sin(x)' },
+                { formula: "(tan x)'", solution: '1 + tan²(x) = 1/cos²(x)' },
+                { formula: "(arctan x)'", solution: '1/(1+x²)' },
+                { formula: "(u·v)'", solution: "u'·v + u·v'" },
+                { formula: "(u/v)'", solution: "(u'·v − u·v')/v²" },
+                { formula: "(u∘v)' = (f(g(x)))'", solution: "g'(x)·f'(g(x))" },
+                { formula: "(uⁿ)'", solution: "n·u'·uⁿ⁻¹" },
+            ],
+            algebre: [
+                { formula: '(a+b)²', solution: 'a² + 2ab + b²' },
+                { formula: '(a−b)²', solution: 'a² − 2ab + b²' },
+                { formula: '(a+b)(a−b)', solution: 'a² − b²' },
+                { formula: '(a+b)³', solution: 'a³ + 3a²b + 3ab² + b³' },
+                { formula: '(a−b)³', solution: 'a³ − 3a²b + 3ab² − b³' },
+                { formula: 'a³ − b³', solution: '(a−b)(a² + ab + b²)' },
+                { formula: 'a³ + b³', solution: '(a+b)(a² − ab + b²)' },
+                { formula: 'aⁿ · aᵐ', solution: 'aⁿ⁺ᵐ' },
+                { formula: '(aⁿ)ᵐ', solution: 'aⁿ·ᵐ' },
+                { formula: 'aⁿ / aᵐ', solution: 'aⁿ⁻ᵐ' },
+                { formula: 'Racines de ax²+bx+c=0', solution: 'x = (−b ± √Δ)/(2a),  Δ = b²−4ac' },
+            ],
+            trigo: [
+                { formula: 'sin²(x) + cos²(x)', solution: '1' },
+                { formula: 'tan(x)', solution: 'sin(x)/cos(x)' },
+                { formula: '1 + tan²(x)', solution: '1/cos²(x)' },
+                { formula: 'sin(2x)', solution: '2·sin(x)·cos(x)' },
+                { formula: 'cos(2x)', solution: 'cos²(x) − sin²(x) = 2cos²(x) − 1 = 1 − 2sin²(x)' },
+                { formula: 'sin(a+b)', solution: 'sin(a)cos(b) + cos(a)sin(b)' },
+                { formula: 'sin(a−b)', solution: 'sin(a)cos(b) − cos(a)sin(b)' },
+                { formula: 'cos(a+b)', solution: 'cos(a)cos(b) − sin(a)sin(b)' },
+                { formula: 'cos(a−b)', solution: 'cos(a)cos(b) + sin(a)sin(b)' },
+                { formula: 'sin(π/2 − x)', solution: 'cos(x)' },
+                { formula: 'cos(π/2 − x)', solution: 'sin(x)' },
+                { formula: 'Loi des cosinus', solution: 'c² = a² + b² − 2ab·cos(C)' },
+            ],
+            complexes: [
+                { formula: 'i²', solution: '−1' },
+                { formula: 'Forme algébrique', solution: 'z = a + i·b' },
+                { formula: 'Module |z|', solution: '√(a² + b²)' },
+                { formula: 'Conjugué z̄', solution: 'a − i·b' },
+                { formula: 'z · z̄', solution: '|z|² = a² + b²' },
+                { formula: 'Forme exponentielle', solution: 'z = r·e^(iθ),  r = |z|,  θ = arg(z)' },
+                { formula: "Formule d'Euler", solution: 'e^(iθ) = cos(θ) + i·sin(θ)' },
+                { formula: 'arg(z₁·z₂)', solution: 'arg(z₁) + arg(z₂)' },
+                { formula: '|z₁·z₂|', solution: '|z₁|·|z₂|' },
+                { formula: 'De Moivre', solution: '(e^(iθ))ⁿ = e^(i·nθ)' },
+                { formula: 'cos(θ) (Euler)', solution: '(e^(iθ) + e^(−iθ)) / 2' },
+                { formula: 'sin(θ) (Euler)', solution: '(e^(iθ) − e^(−iθ)) / (2i)' },
+            ],
+            edo: [
+                { formula: "y' + a·y = 0", solution: 'y = C·e^(−ax)' },
+                { formula: "y' + a·y = b", solution: 'y = C·e^(−ax) + b/a' },
+                { formula: "y'' + ω²·y = 0", solution: 'y = A·cos(ωx) + B·sin(ωx)' },
+                { formula: "y'' − ω²·y = 0", solution: 'y = A·e^(ωx) + B·e^(−ωx)' },
+                { formula: "a·y'' + b·y' + c·y = 0", solution: 'Éq. caractéristique : a·r² + b·r + c = 0' },
+                { formula: 'Cas Δ > 0', solution: 'y = A·e^(r₁x) + B·e^(r₂x)' },
+                { formula: 'Cas Δ = 0', solution: 'y = (A + B·x)·e^(rx)' },
+                { formula: 'Cas Δ < 0  (r = α ± iβ)', solution: 'y = e^(αx)·(A·cos(βx) + B·sin(βx))' },
+            ],
+            matrices: [
+                { formula: 'Déterminant 2×2  |a b ; c d|', solution: 'ad − bc' },
+                { formula: 'Inverse 2×2', solution: '(1/det)·[ d −b ; −c a ]' },
+                { formula: 'Déterminant 3×3', solution: 'Règle de Sarrus (diagonales + − −)' },
+                { formula: 'det(A·B)', solution: 'det(A)·det(B)' },
+                { formula: '(A·B)⁻¹', solution: 'B⁻¹·A⁻¹' },
+                { formula: '(A·B)ᵀ', solution: 'Bᵀ·Aᵀ' },
+                { formula: 'Trace tr(A)', solution: 'Somme des termes diagonaux' },
+                { formula: 'A inversible ⟺', solution: 'det(A) ≠ 0' },
+                { formula: 'Produit A·B', solution: 'Ligne i de A × colonne j de B' },
+            ],
+            dl: [
+                { formula: 'eˣ', solution: '1 + x + x²/2 + x³/6 + …' },
+                { formula: 'ln(1+x)', solution: 'x − x²/2 + x³/3 − …' },
+                { formula: '(1+x)^α', solution: '1 + αx + α(α−1)x²/2 + …' },
+                { formula: '1/(1−x)', solution: '1 + x + x² + x³ + …' },
+                { formula: '1/(1+x)', solution: '1 − x + x² − x³ + …' },
+                { formula: 'sin(x)', solution: 'x − x³/6 + x⁵/120 − …' },
+                { formula: 'cos(x)', solution: '1 − x²/2 + x⁴/24 − …' },
+                { formula: 'tan(x)', solution: 'x + x³/3 + …' },
+                { formula: '√(1+x)', solution: '1 + x/2 − x²/8 + …' },
+            ],
+            surfaces: [
+                { formula: 'Carré (côté a)', solution: 'a²' },
+                { formula: 'Rectangle', solution: 'L × l' },
+                { formula: 'Triangle', solution: '(base × hauteur) / 2' },
+                { formula: 'Parallélogramme', solution: 'base × hauteur' },
+                { formula: 'Trapèze', solution: '((B + b) × h) / 2' },
+                { formula: 'Disque (rayon r)', solution: 'π·r²' },
+                { formula: 'Ellipse (a, b)', solution: 'π·a·b' },
+                { formula: 'Couronne', solution: 'π·(R² − r²)' },
+                { formula: 'Surface sphère', solution: '4π·r²' },
+                { formula: 'Surface latérale cylindre', solution: '2π·r·h' },
+                { formula: 'Surface latérale cône', solution: 'π·r·g  (g = génératrice)' },
+            ],
+            volumes: [
+                { formula: 'Cube (côté a)', solution: 'a³' },
+                { formula: 'Parallélépipède', solution: 'L × l × h' },
+                { formula: 'Cylindre', solution: 'π·r²·h' },
+                { formula: 'Sphère', solution: '(4/3)·π·r³' },
+                { formula: 'Cône', solution: '(1/3)·π·r²·h' },
+                { formula: 'Pyramide', solution: '(1/3) × Aire_base × h' },
+                { formula: 'Prisme', solution: 'Aire_base × h' },
+                { formula: 'Tore', solution: '2π²·R·r²' },
+            ],
+            rdm: [
+                { formula: 'Contrainte normale  σ', solution: 'σ = N / A' },
+                { formula: 'Contrainte cisaillement  τ', solution: 'τ = V / A' },
+                { formula: 'Contrainte de flexion  σ', solution: 'σ = M·v / I' },
+                { formula: 'Loi de Hooke', solution: 'σ = E·ε' },
+                { formula: 'Déformation  ε', solution: 'ε = ΔL / L' },
+                { formula: 'Module de cisaillement  G', solution: 'G = E / (2(1+ν))' },
+                { formula: 'Moment quadratique — rectangle', solution: 'I = b·h³ / 12' },
+                { formula: 'Moment quadratique — cercle', solution: 'I = π·d⁴ / 64' },
+                { formula: 'Module de flexion  W', solution: 'W = I / v' },
+                { formula: 'Flèche — appui simple, charge centrée P', solution: 'f = P·L³ / (48·E·I)' },
+                { formula: 'Flèche — appui simple, charge répartie q', solution: 'f = 5·q·L⁴ / (384·E·I)' },
+                { formula: 'Flèche — console, charge en bout P', solution: 'f = P·L³ / (3·E·I)' },
+                { formula: 'Flambement d\'Euler  N_c', solution: 'N_c = π²·E·I / L_f²' },
+                { formula: 'Contrainte admissible', solution: 'σ_adm = σ_e / s   (s = coef. sécurité)' },
+            ],
+            statique: [
+                { formula: 'Équilibre — forces', solution: 'Σ F⃗ = 0⃗' },
+                { formula: 'Équilibre — moments', solution: 'Σ M⃗ = 0⃗' },
+                { formula: 'PFS (plan)', solution: 'ΣFx = 0 ; ΣFy = 0 ; ΣM = 0' },
+                { formula: "Moment d'une force", solution: 'M = F · d   (d = bras de levier)' },
+                { formula: 'Moment vectoriel', solution: 'M⃗ = r⃗ × F⃗' },
+                { formula: 'Couple', solution: 'C = F · d   (2 forces opposées)' },
+                { formula: 'Appui simple', solution: '1 inconnue (réaction ⊥)' },
+                { formula: 'Articulation (rotule)', solution: '2 inconnues (Rx, Ry)' },
+                { formula: 'Encastrement', solution: '3 inconnues (Rx, Ry, M)' },
+            ],
+            pointmeca: [
+                { formula: 'Vitesse', solution: 'v = dx/dt' },
+                { formula: 'Accélération', solution: 'a = dv/dt = d²x/dt²' },
+                { formula: 'PFD (2ᵉ loi de Newton)', solution: 'Σ F⃗ = m·a⃗' },
+                { formula: 'Énergie cinétique', solution: 'E_c = ½·m·v²' },
+                { formula: 'Énergie potentielle (pesanteur)', solution: 'E_p = m·g·h' },
+                { formula: 'Travail d\'une force', solution: 'W = F·d·cos(θ)' },
+                { formula: 'Puissance', solution: 'P = W/t = F·v' },
+                { formula: 'Quantité de mouvement', solution: 'p⃗ = m·v⃗' },
+                { formula: 'MRUA — vitesse', solution: 'v = v₀ + a·t' },
+                { formula: 'MRUA — position', solution: 'x = x₀ + v₀·t + ½·a·t²' },
+                { formula: 'Force centripète', solution: 'F = m·v² / r' },
+                { formula: 'Période — pendule simple', solution: 'T = 2π·√(L/g)' },
+            ],
+            fluides: [
+                { formula: 'Pression hydrostatique', solution: 'P = ρ·g·h' },
+                { formula: "Poussée d'Archimède", solution: 'F = ρ·V·g' },
+                { formula: 'Débit volumique', solution: 'Q = S·v' },
+                { formula: 'Équation de continuité', solution: 'S₁·v₁ = S₂·v₂' },
+                { formula: 'Bernoulli', solution: 'P + ½·ρ·v² + ρ·g·h = constante' },
+                { formula: 'Nombre de Reynolds', solution: 'Re = ρ·v·D / μ = v·D / ν' },
+                { formula: 'Pertes de charge (Darcy-Weisbach)', solution: 'ΔP = λ·(L/D)·(ρ·v²/2)' },
+                { formula: 'Théorème de Torricelli', solution: 'v = √(2·g·h)' },
+                { formula: 'Viscosité cinématique', solution: 'ν = μ / ρ' },
+            ],
+            thermique: [
+                { formula: '1ᵉʳ principe', solution: 'ΔU = Q + W' },
+                { formula: 'Gaz parfait', solution: 'P·V = n·R·T' },
+                { formula: 'Chaleur sensible', solution: 'Q = m·c·ΔT' },
+                { formula: 'Conduction (Fourier)', solution: 'φ = λ·S·ΔT / e' },
+                { formula: 'Résistance thermique', solution: 'R = e / λ   (m²·K/W)' },
+                { formula: 'Coefficient de transmission U', solution: 'U = 1 / R_tot' },
+                { formula: 'Flux à travers une paroi', solution: 'φ = U·S·ΔT' },
+                { formula: 'Convection', solution: 'φ = h·S·ΔT' },
+                { formula: 'Rayonnement (Stefan-Boltzmann)', solution: 'φ = ε·σ·S·T⁴' },
+                { formula: 'Rendement de Carnot', solution: 'η = 1 − T_froid / T_chaud' },
+            ],
+            acoustique: [
+                { formula: 'Niveau sonore (intensité)', solution: 'L = 10·log(I / I₀),  I₀ = 10⁻¹² W/m²' },
+                { formula: 'Niveau sonore (pression)', solution: 'L_p = 20·log(p / p₀),  p₀ = 2×10⁻⁵ Pa' },
+                { formula: 'Addition de 2 sources égales', solution: '+3 dB' },
+                { formula: 'Intensité acoustique', solution: 'I = p² / (ρ·c)' },
+                { formula: "Longueur d'onde", solution: 'λ = c / f' },
+                { formula: 'Effet Doppler (source mobile)', solution: "f' = f · c / (c ± v_s)" },
+                { formula: 'Doublement de la distance (champ libre)', solution: '−6 dB' },
+            ],
+            elec: [
+                { formula: "Loi d'Ohm", solution: 'U = R·I' },
+                { formula: 'Puissance', solution: 'P = U·I = R·I² = U²/R' },
+                { formula: 'Résistances en série', solution: 'R = R₁ + R₂ + …' },
+                { formula: 'Résistances en parallèle', solution: '1/R = 1/R₁ + 1/R₂ + …' },
+                { formula: 'Loi des nœuds', solution: 'Σ I = 0' },
+                { formula: 'Loi des mailles', solution: 'Σ U = 0' },
+                { formula: 'Énergie électrique', solution: 'E = P·t' },
+                { formula: 'Condensateur', solution: 'Q = C·U' },
+                { formula: 'Impédance bobine', solution: 'Z_L = L·ω' },
+                { formula: 'Impédance condensateur', solution: 'Z_C = 1 / (C·ω)' },
+            ],
+        };
+
+        /* ============================== DONNÉES : CONVERSIONS ============================== */
+        // facteur = valeur pour obtenir 1 unité de base
+        const CONVERSIONS = {
+            'Longueur (m)':   { mm: 0.001, cm: 0.01, m: 1, km: 1000, in: 0.0254, ft: 0.3048, mi: 1609.344 },
+            'Surface (m²)':   { 'mm²': 1e-6, 'cm²': 1e-4, 'm²': 1, 'km²': 1e6, 'ha': 1e4, 'a': 100 },
+            'Volume (L)':     { 'mL': 0.001, 'cL': 0.01, 'L': 1, 'm³': 1000, 'cm³': 0.001 },
+            'Masse (kg)':     { mg: 1e-6, g: 0.001, kg: 1, t: 1000, lb: 0.45359237 },
+            'Force (N)':      { N: 1, daN: 10, kN: 1000, kgf: 9.80665 },
+            'Pression (Pa)':  { Pa: 1, hPa: 100, kPa: 1000, MPa: 1e6, bar: 1e5, atm: 101325, mmHg: 133.322, psi: 6894.757 },
+            'Énergie (J)':    { J: 1, kJ: 1000, Wh: 3600, kWh: 3.6e6, cal: 4.184, kcal: 4184 },
+            'Puissance (W)':  { W: 1, kW: 1000, MW: 1e6, ch: 735.49875 },
+            'Débit (m³/s)':   { 'L/s': 0.001, 'L/min': 0.001/60, 'm³/h': 1/3600, 'm³/s': 1 },
+            'Vitesse (m/s)':  { 'm/s': 1, 'km/h': 1/3.6, 'mph': 0.44704, 'nœud': 0.514444 },
+            'Angle (rad)':    { 'rad': 1, '°': Math.PI/180, 'grade': Math.PI/200, 'tour': 2*Math.PI },
+        };
+
+        /* ============================== DONNÉES : CONSTANTES ============================== */
+        const CONSTANTS = [
+            { sym: 'g',   name: 'Pesanteur (standard)',        val: '9,81 m/s²' },
+            { sym: 'c',   name: 'Vitesse de la lumière',       val: '2,998 × 10⁸ m/s' },
+            { sym: 'G',   name: 'Constante gravitationnelle',  val: '6,674 × 10⁻¹¹ N·m²/kg²' },
+            { sym: 'R',   name: 'Constante des gaz parfaits',  val: '8,314 J/(mol·K)' },
+            { sym: 'N_A', name: 'Nombre d\'Avogadro',          val: '6,022 × 10²³ /mol' },
+            { sym: 'k_B', name: 'Constante de Boltzmann',      val: '1,381 × 10⁻²³ J/K' },
+            { sym: 'h',   name: 'Constante de Planck',         val: '6,626 × 10⁻³⁴ J·s' },
+            { sym: 'σ',   name: 'Stefan-Boltzmann',            val: '5,670 × 10⁻⁸ W/(m²·K⁴)' },
+            { sym: 'e',   name: 'Charge élémentaire',          val: '1,602 × 10⁻¹⁹ C' },
+            { sym: 'ε₀',  name: 'Permittivité du vide',        val: '8,854 × 10⁻¹² F/m' },
+            { sym: 'μ₀',  name: 'Perméabilité du vide',        val: '1,257 × 10⁻⁶ H/m' },
+            { sym: 'P_atm', name: 'Pression atmosphérique',    val: '101 325 Pa' },
+            { sym: 'ρ_eau', name: 'Masse volumique eau',       val: '1000 kg/m³' },
+            { sym: 'ρ_air', name: 'Masse volumique air (15°C)', val: '1,225 kg/m³' },
+            { sym: 'c_son', name: 'Célérité du son (air, 20°C)', val: '343 m/s' },
+            { sym: '0 °C', name: 'Zéro Celsius',               val: '273,15 K' },
+        ];
+
+        /* ============================== DONNÉES : MATÉRIAUX ============================== */
+        // Valeurs indicatives de cours (E en GPa, ρ en kg/m³, λ en W/(m·K))
+        const MATERIALS = [
+            { mat: 'Acier',            E: '210', rho: '7850', lambda: '50',  nu: '0,30' },
+            { mat: 'Inox',             E: '200', rho: '8000', lambda: '16',  nu: '0,30' },
+            { mat: 'Fonte',            E: '100', rho: '7200', lambda: '50',  nu: '0,26' },
+            { mat: 'Aluminium',        E: '70',  rho: '2700', lambda: '230', nu: '0,33' },
+            { mat: 'Cuivre',           E: '124', rho: '8960', lambda: '390', nu: '0,34' },
+            { mat: 'Béton',            E: '30',  rho: '2400', lambda: '1,7', nu: '0,20' },
+            { mat: 'Bois (résineux)',  E: '11',  rho: '500',  lambda: '0,15', nu: '0,30' },
+            { mat: 'Verre',            E: '70',  rho: '2500', lambda: '1,0', nu: '0,22' },
+        ];
+
+        /* ============================== ICÔNES ============================== */
+        const Icon = ({ d, size = 28 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
+        );
+        const IconBrain = () => <Icon d={<><path d="M12 5a3 3 0 1 0-5.997.142M12 5a3 3 0 1 1 5.997.142M12 5v14M6.003 5.142A4 4 0 0 0 4 9a4 4 0 0 0 .5 6M18 5.142A4 4 0 0 1 20 9a4 4 0 0 1-.5 6M5 15a4 4 0 0 0 7 3 4 4 0 0 0 7-3"/></>} />;
+        const IconBook = () => <Icon d={<><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></>} />;
+        const IconConvert = () => <Icon d={<><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></>} />;
+        const IconAtom = () => <Icon d={<><circle cx="12" cy="12" r="1"/><path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z"/><path d="M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z"/></>} />;
+
+        /* ============================== CALCUL MENTAL ============================== */
+        const MentalMathGame = ({ onBack }) => {
+            const [stats, setStats] = useState(() => {
+                const s = localStorage.getItem('mentalMathStats');
+                return s ? JSON.parse(s) : { level: 1, correct: 0, total: 0, consecutive: 0 };
+            });
+            const [problem, setProblem] = useState(null);
+            const [userAnswer, setUserAnswer] = useState('');
+            const [feedback, setFeedback] = useState(null);
+            const [timeLeft, setTimeLeft] = useState(30);
+            const inputRef = useRef(null);
+
+            useEffect(() => { generateProblem(); }, [stats.level]);
+            useEffect(() => {
+                if (!problem || feedback !== null) return;
+                const t = setInterval(() => {
+                    setTimeLeft(x => { if (x <= 1) { handleSubmit(null); return 30; } return x - 1; });
+                }, 1000);
+                return () => clearInterval(t);
+            }, [problem, feedback]);
+
+            const generateProblem = () => {
+                const level = stats.level;
+                const ops = ['+', '−', '×', '÷'];
+                const operation = ops[Math.floor(Math.random() * ops.length)];
+                let a, b;
+                const decimal = level >= 5;
+
+                if (operation === '+' || operation === '−') {
+                    const maxNum = Math.min(10 ** Math.min(level, 4), 9999);
+                    a = Math.floor(Math.random() * maxNum);
+                    b = Math.floor(Math.random() * maxNum);
+                    if (operation === '−' && b > a) [a, b] = [b, a];
+                } else if (operation === '×') {
+                    const maxNum = Math.min(10 ** Math.min(level, 2), 99);
+                    a = Math.floor(Math.random() * maxNum) + 1;
+                    b = Math.floor(Math.random() * maxNum) + 1;
+                } else {
+                    const maxNum = Math.min(10 ** Math.min(level, 2), 99);
+                    b = Math.floor(Math.random() * maxNum) + 1;
+                    a = b * (Math.floor(Math.random() * maxNum) + 1);
+                }
+                if (decimal && Math.random() > 0.5) {
+                    a = Math.round(a * 10) / 10 + Math.round(Math.random() * 9) / 10;
+                    a = Math.round(a * 10) / 10;
+                }
+
+                let correct;
+                if (operation === '+') correct = a + b;
+                else if (operation === '−') correct = a - b;
+                else if (operation === '×') correct = a * b;
+                else correct = a / b;
+                correct = Math.round(correct * 10) / 10;
+
+                setProblem({ a, b, operation, correct });
+                setUserAnswer(''); setFeedback(null); setTimeLeft(30);
+                setTimeout(() => inputRef.current && inputRef.current.focus(), 50);
+            };
+
+            const handleSubmit = (e) => {
+                if (e) e.preventDefault();
+                if (feedback !== null) return;
+                if (!userAnswer.trim()) return;
+                const isCorrect = Math.abs(parseFloat(userAnswer.replace(',', '.')) - problem.correct) < 0.05;
+                const ns = {
+                    ...stats,
+                    total: stats.total + 1,
+                    correct: stats.correct + (isCorrect ? 1 : 0),
+                    consecutive: isCorrect ? stats.consecutive + 1 : 0,
+                };
+                if (isCorrect && ns.consecutive > 0 && ns.consecutive % 5 === 0 && stats.level < 5) ns.level = stats.level + 1;
+                else if (!isCorrect && stats.consecutive === 0 && stats.level > 1 && Math.random() > 0.6) ns.level = stats.level - 1;
+                setStats(ns);
+                localStorage.setItem('mentalMathStats', JSON.stringify(ns));
+                setFeedback(isCorrect);
+                setTimeout(generateProblem, 1400);
+            };
+
+            const reset = () => {
+                const ns = { level: 1, correct: 0, total: 0, consecutive: 0 };
+                setStats(ns); localStorage.setItem('mentalMathStats', JSON.stringify(ns));
+            };
+
+            const levelName = ['Débutant', 'Facile', 'Moyen', 'Difficile', 'Expert'][stats.level - 1];
+            const pct = stats.total ? Math.round(stats.correct / stats.total * 100) : 0;
+            if (!problem) return null;
+
+            return (
+                <div className="min-h-screen p-5 flex flex-col fade-in">
+                    <div className="flex items-center justify-between mb-8">
+                        <button onClick={onBack} className="text-slate-400 hover:text-white">← Accueil</button>
+                        <button onClick={reset} className="text-xs text-slate-500 hover:text-slate-300">Réinitialiser</button>
+                    </div>
+                    <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
+                        <div className="flex justify-between text-sm mb-1">
+                            <span className="text-sky-400 font-medium">{levelName}</span>
+                            <span className="text-slate-400">{pct}% • série {stats.consecutive}</span>
+                        </div>
+                        <div className="w-full bg-slate-800 rounded-full h-1.5 mb-10">
+                            <div className="bg-sky-500 h-1.5 rounded-full transition-all" style={{ width: `${(stats.consecutive % 5) * 20}%` }} />
+                        </div>
+
+                        <div className="text-center mb-8">
+                            <div className={`text-6xl font-bold tracking-tight mb-5 transition-colors ${feedback === true ? 'text-emerald-400' : feedback === false ? 'text-rose-400' : 'text-slate-100'}`}>
+                                {problem.a} {problem.operation} {problem.b}
+                            </div>
+                            <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${timeLeft > 10 ? 'bg-sky-500/15 text-sky-300' : 'bg-rose-500/15 text-rose-300'}`}>{timeLeft}s</div>
+                        </div>
+
+                        <div className="h-8 mb-2 text-center">
+                            {feedback === true && <span className="text-emerald-400 font-semibold">Correct ✓</span>}
+                            {feedback === false && <span className="text-rose-400 font-semibold">Réponse : {problem.correct}</span>}
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-3">
+                            <input ref={inputRef} type="text" inputMode="decimal" value={userAnswer}
+                                onChange={(e) => setUserAnswer(e.target.value)} placeholder="?"
+                                disabled={feedback !== null} autoFocus
+                                className="w-full px-4 py-4 text-3xl text-center bg-slate-800 text-white rounded-2xl border border-slate-700 focus:border-sky-500 focus:outline-none disabled:opacity-40" />
+                            <button type="submit" disabled={feedback !== null}
+                                className="w-full py-4 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 disabled:opacity-40 text-white font-semibold rounded-2xl transition">
+                                Valider
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        /* ============================== FLASHCARDS ============================== */
+        const FlashcardsApp = ({ onBack }) => {
+            const [category, setCategory] = useState(null);
+            const [order, setOrder] = useState([]);
+            const [idx, setIdx] = useState(0);
+            const [flipped, setFlipped] = useState(false);
+
+            const openCategory = (key, shuffle) => {
+                const n = FORMULAS[key].length;
+                let arr = Array.from({ length: n }, (_, i) => i);
+                if (shuffle) arr = arr.sort(() => Math.random() - 0.5);
+                setCategory(key); setOrder(arr); setIdx(0); setFlipped(false);
+            };
+
+            if (!category) {
+                const groups = {};
+                Object.entries(CATEGORIES).forEach(([k, v]) => {
+                    (groups[v.group] = groups[v.group] || []).push(k);
+                });
+                return (
+                    <div className="min-h-screen p-5 fade-in">
+                        <button onClick={onBack} className="text-slate-400 hover:text-white mb-6">← Accueil</button>
+                        <h2 className="text-2xl font-bold text-white mb-1">Flashcards</h2>
+                        <p className="text-slate-400 text-sm mb-6">Touche une carte pour révéler la réponse</p>
+                        <div className="max-w-2xl space-y-6">
+                            {Object.entries(groups).map(([g, keys]) => (
+                                <div key={g}>
+                                    <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2 px-1">{g}</h3>
+                                    <div className="grid gap-2">
+                                        {keys.map(k => (
+                                            <button key={k} onClick={() => openCategory(k, false)}
+                                                className="p-4 bg-slate-800 hover:bg-slate-700 active:bg-slate-700 text-white rounded-xl text-left transition flex justify-between items-center border border-slate-700/50">
+                                                <span className="font-medium">{CATEGORIES[k].label}</span>
+                                                <span className="text-xs text-slate-500">{FORMULAS[k].length}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            }
+
+            const cards = FORMULAS[category];
+            const card = cards[order[idx]];
+            return (
+                <div className="min-h-screen p-5 fade-in">
+                    <div className="flex items-center justify-between mb-5 max-w-2xl mx-auto">
+                        <button onClick={() => setCategory(null)} className="text-slate-400 hover:text-white">← Catégories</button>
+                        <button onClick={() => openCategory(category, true)} className="text-xs text-sky-400 hover:text-sky-300">Mélanger</button>
+                    </div>
+                    <div className="max-w-2xl mx-auto">
+                        <div className="flex justify-between text-sm text-slate-400 mb-2">
+                            <span className="font-medium text-slate-300">{CATEGORIES[category].label}</span>
+                            <span>{idx + 1} / {cards.length}</span>
+                        </div>
+                        <div className="w-full bg-slate-800 rounded-full h-1.5 mb-6">
+                            <div className="bg-sky-500 h-1.5 rounded-full transition-all" style={{ width: `${(idx + 1) / cards.length * 100}%` }} />
+                        </div>
+
+                        <div onClick={() => setFlipped(!flipped)}
+                            className={`min-h-[18rem] rounded-2xl p-7 flex items-center justify-center cursor-pointer transition border ${flipped ? 'bg-sky-950/40 border-sky-800' : 'bg-slate-800 border-slate-700'} mb-6`}>
+                            <div className="text-center">
+                                <div className={`text-[10px] uppercase tracking-widest mb-4 font-semibold ${flipped ? 'text-sky-400' : 'text-slate-500'}`}>{flipped ? 'Réponse' : 'Question'}</div>
+                                <div className="text-2xl sm:text-3xl font-semibold text-white leading-relaxed break-words">{flipped ? card.solution : card.formula}</div>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button onClick={() => { setFlipped(false); setIdx(Math.max(0, idx - 1)); }} disabled={idx === 0}
+                                className="flex-1 py-3.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white rounded-xl transition">← Préc.</button>
+                            <button onClick={() => { setFlipped(false); idx < cards.length - 1 ? setIdx(idx + 1) : setCategory(null); }}
+                                className="flex-1 py-3.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl transition">{idx === cards.length - 1 ? 'Terminer' : 'Suiv. →'}</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        /* ============================== CONVERTISSEUR ============================== */
+        const Converter = ({ onBack }) => {
+            const cats = Object.keys(CONVERSIONS);
+            const [cat, setCat] = useState(cats[0]);
+            const [value, setValue] = useState('1');
+            const units = Object.keys(CONVERSIONS[cat]);
+            const [from, setFrom] = useState(units[0]);
+
+            const changeCat = (c) => { setCat(c); setFrom(Object.keys(CONVERSIONS[c])[0]); };
+            const v = parseFloat(value.replace(',', '.'));
+            const baseValue = isNaN(v) ? null : v * CONVERSIONS[cat][from];
+
+            const fmt = (x) => {
+                if (x === 0) return '0';
+                const abs = Math.abs(x);
+                if (abs < 1e-4 || abs >= 1e7) return x.toExponential(4).replace('.', ',');
+                return parseFloat(x.toPrecision(7)).toString().replace('.', ',');
+            };
+
+            return (
+                <div className="min-h-screen p-5 fade-in">
+                    <button onClick={onBack} className="text-slate-400 hover:text-white mb-6">← Accueil</button>
+                    <div className="max-w-2xl mx-auto">
+                        <h2 className="text-2xl font-bold text-white mb-5">Convertisseur d'unités</h2>
+                        <div className="flex gap-2 overflow-x-auto pb-2 mb-5 -mx-1 px-1">
+                            {cats.map(c => (
+                                <button key={c} onClick={() => changeCat(c)}
+                                    className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition ${cat === c ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
+                                    {c.split(' (')[0]}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="bg-slate-800 rounded-2xl p-4 mb-4 border border-slate-700">
+                            <input type="text" inputMode="decimal" value={value} onChange={e => setValue(e.target.value)}
+                                className="w-full bg-transparent text-3xl text-white focus:outline-none mb-3" />
+                            <div className="flex flex-wrap gap-2">
+                                {units.map(u => (
+                                    <button key={u} onClick={() => setFrom(u)}
+                                        className={`px-3 py-1 rounded-lg text-sm transition ${from === u ? 'bg-sky-600 text-white' : 'bg-slate-700 text-slate-300'}`}>{u}</button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            {units.filter(u => u !== from).map(u => (
+                                <div key={u} className="flex justify-between items-center bg-slate-800/50 rounded-xl px-4 py-3 border border-slate-700/40">
+                                    <span className="text-slate-400 text-sm">{u}</span>
+                                    <span className="text-white font-mono">{baseValue === null ? '—' : fmt(baseValue / CONVERSIONS[cat][u])}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        /* ============================== CONSTANTES & MATÉRIAUX ============================== */
+        const Reference = ({ onBack }) => {
+            const [tab, setTab] = useState('constants');
+            return (
+                <div className="min-h-screen p-5 fade-in">
+                    <button onClick={onBack} className="text-slate-400 hover:text-white mb-6">← Accueil</button>
+                    <div className="max-w-2xl mx-auto">
+                        <h2 className="text-2xl font-bold text-white mb-4">Référence</h2>
+                        <div className="flex gap-2 mb-5">
+                            <button onClick={() => setTab('constants')} className={`px-4 py-2 rounded-xl text-sm transition ${tab === 'constants' ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-300'}`}>Constantes physiques</button>
+                            <button onClick={() => setTab('materials')} className={`px-4 py-2 rounded-xl text-sm transition ${tab === 'materials' ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-300'}`}>Matériaux</button>
+                        </div>
+
+                        {tab === 'constants' && (
+                            <div className="space-y-1.5">
+                                {CONSTANTS.map((c, i) => (
+                                    <div key={i} className="flex items-center justify-between bg-slate-800/50 rounded-xl px-4 py-3 border border-slate-700/40">
+                                        <div>
+                                            <span className="text-sky-400 font-mono font-semibold mr-2">{c.sym}</span>
+                                            <span className="text-slate-400 text-sm">{c.name}</span>
+                                        </div>
+                                        <span className="text-white font-mono text-sm text-right">{c.val}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {tab === 'materials' && (
+                            <div>
+                                <div className="overflow-x-auto rounded-xl border border-slate-700/40">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="bg-slate-800 text-slate-400">
+                                                <th className="text-left px-3 py-2.5 font-medium">Matériau</th>
+                                                <th className="px-3 py-2.5 font-medium">E (GPa)</th>
+                                                <th className="px-3 py-2.5 font-medium">ρ (kg/m³)</th>
+                                                <th className="px-3 py-2.5 font-medium">λ (W/m·K)</th>
+                                                <th className="px-3 py-2.5 font-medium">ν</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {MATERIALS.map((m, i) => (
+                                                <tr key={i} className={i % 2 ? 'bg-slate-800/30' : 'bg-slate-800/60'}>
+                                                    <td className="text-left px-3 py-2.5 text-white font-medium">{m.mat}</td>
+                                                    <td className="px-3 py-2.5 text-center text-slate-300 font-mono">{m.E}</td>
+                                                    <td className="px-3 py-2.5 text-center text-slate-300 font-mono">{m.rho}</td>
+                                                    <td className="px-3 py-2.5 text-center text-slate-300 font-mono">{m.lambda}</td>
+                                                    <td className="px-3 py-2.5 text-center text-slate-300 font-mono">{m.nu}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p className="text-slate-500 text-xs mt-3 px-1">Valeurs indicatives de cours. Pour le dimensionnement réglementaire, se référer aux normes (Eurocodes, DTU) et à la nuance exacte du matériau.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        /* ============================== ACCUEIL ============================== */
+        const Home = ({ go }) => {
+            const tiles = [
+                { id: 'mental', label: 'Calcul mental', sub: 'Progression adaptative', icon: <IconBrain />, color: 'from-sky-600 to-sky-700' },
+                { id: 'flashcards', label: 'Flashcards', sub: '17 catégories de formules', icon: <IconBook />, color: 'from-indigo-600 to-indigo-700' },
+                { id: 'converter', label: 'Convertisseur', sub: '11 familles d\'unités', icon: <IconConvert />, color: 'from-teal-600 to-teal-700' },
+                { id: 'reference', label: 'Référence', sub: 'Constantes & matériaux', icon: <IconAtom />, color: 'from-violet-600 to-violet-700' },
+            ];
+            return (
+                <div className="min-h-screen p-5 flex flex-col justify-center fade-in">
+                    <div className="max-w-md mx-auto w-full">
+                        <div className="mb-10">
+                            <h1 className="text-3xl font-bold text-white tracking-tight">Math &amp; Physique</h1>
+                            <p className="text-slate-400 mt-1">Entraînement et aide-mémoire pour les sciences de l'ingénieur</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            {tiles.map(t => (
+                                <button key={t.id} onClick={() => go(t.id)}
+                                    className={`aspect-square p-4 bg-gradient-to-br ${t.color} text-white rounded-2xl transition active:scale-95 flex flex-col justify-between text-left`}>
+                                    <div className="opacity-90">{t.icon}</div>
+                                    <div>
+                                        <div className="font-bold leading-tight">{t.label}</div>
+                                        <div className="text-xs opacity-75 mt-0.5">{t.sub}</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-slate-600 text-xs text-center mt-8">Hors ligne • aucune donnée collectée</p>
+                    </div>
+                </div>
+            );
+        };
+
+        /* ============================== APP ============================== */
+        const App = () => {
+            const [view, setView] = useState('home');
+            const back = () => setView('home');
+            return (
+                <div className="text-white">
+                    {view === 'home' && <Home go={setView} />}
+                    {view === 'mental' && <MentalMathGame onBack={back} />}
+                    {view === 'flashcards' && <FlashcardsApp onBack={back} />}
+                    {view === 'converter' && <Converter onBack={back} />}
+                    {view === 'reference' && <Reference onBack={back} />}
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    </script>
+</body>
+</html>
